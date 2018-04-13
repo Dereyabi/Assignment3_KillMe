@@ -2,6 +2,7 @@
 // Assignment3_SceneSetup.cpp: A program using the TL-Engine
 
 #include <TL-Engine.h>	// TL-Engine include file and namespace
+#include <sstream>
 using namespace tle;
 
 //constants 
@@ -10,12 +11,12 @@ const int kNumCheckpoints = 4;
 const int kNumIsles = 8;
 const int kNumWalls = 4;
 const int kNumBuildings = 4;
-const int kNumTanks1 = 1;
+const int kNumTanks1 = 6;
 const int kNumTanks2 = 1;
 const int kNumCollDummies = 3;
 
 
-enum blockSide { leftSide, rightSide, frontSide, backSide, noSide };	// type to identify which side of a barrier is being hit - 
+enum blockSide { side, frontBack, noSide };	// type to identify which side of a barrier is being hit - 
 																		// used in collision detection to have the car bounce off of the sides of the barrier
 
 bool sphere2sphere(float dumXPos, float dumZPos, float dumRad, float isleXPos, float isleZPos, float isleRad);			//sphere to sphere collision
@@ -91,7 +92,7 @@ void main()
 
 	/**** Set up your scene here ****/
 	float pi = 3.1415f;
-	float frameTime = myEngine->Timer();
+	float frameTime;
 	float radienDivision = pi / 180.0f;												//divides for the radien for vector movement
 	float xVectorMovement;
 	float zVectorMovement;
@@ -103,10 +104,18 @@ void main()
 	float isleRow1X = -10.0f;
 	float wallRow1X = -10.5f;
 	bool collision = false;
+	float countdownTimer = 3.0f;
+	float boostTimer = 3.0f;
+	float cooldownTimer = 5.0f;
+	float stageCompleteTimer = 1.0f;
+	float lapTimer = 0.0f;
+	bool timerStart = false;
+	float warningTimer = 1.0f;
+	float goTimer = 1.0f;
 
 
 	//game states
-	enum gameStates { start, countdown, racing, finished };
+	enum gameStates { start, race, finished };
 	gameStates currentStateG = start;
 
 	//checkpoint numbers
@@ -168,13 +177,16 @@ void main()
 	//fonts
 	IFont* myFont = myEngine->LoadFont("Comic Sans MS", 36);
 
+	//text
+	stringstream outText;
+
 	//ui
 	ISprite* backdrop;
 	backdrop = myEngine->CreateSprite("ui_backdrop.jpg");
 	backdrop->SetPosition(300, 660);
 
 	//camera
-	ICamera* myCamera = myEngine->CreateCamera(kManual, 0.00f, 5.0f, -20.0f);
+	ICamera* myCamera = myEngine->CreateCamera(kManual, 0.0f, 7.0f, -20.0f);
 	myCamera->AttachToParent(car);
 	
 
@@ -185,6 +197,7 @@ void main()
 	float matrix[4][4];
 
 	// model posititons
+
 	// collision Dummies
 	float collisionDummyZLocations[kNumCollDummies] = { 4.0f, 0.0f , -4.0f };
 
@@ -197,8 +210,8 @@ void main()
 	float isleZLocations[kNumIsles] = {40.0f, 40.0f, 53.0f, 53.0f, 40.0f, 40.0f, 53.0f, 53.0f };
 
 	// tank 1 Locations
-	float tank1XLocations[kNumTanks1] = {20.0f};
-	float tank1ZLocations[kNumTanks1] = {20.0f};
+	float tank1XLocations[kNumTanks1] = {0.0f, 40.0f, 100.0f, 0.0f, 40.0f, 100.0f };
+	float tank1ZLocations[kNumTanks1] = {200.0f, 220.0f, 200.0f, -50.0f, -75.0f, -50.0f};
 
 	// tank 2 Locations
 	float tank2XLocations[kNumTanks2] = { 100.0f };
@@ -247,6 +260,8 @@ void main()
 		myEngine->DrawScene();
 
 		/**** Update your scene each frame here ****/
+		frameTime = myEngine->Timer();
+		
 
 		//start of switch currentStateG
 		switch (currentStateG)
@@ -254,21 +269,179 @@ void main()
 		case start:
 		{
 			// in the UI have the bottom screen say "hit space to start"
-			myFont->Draw("Press space to start", 500, 670);
-			if (myEngine->KeyHit(kBoostKey))
+			if (timerStart == false)
 			{
-				currentStateG = countdown;
+				myFont->Draw("Press space to start", 500, 670);
+				if (myEngine->KeyHit(kBoostKey))
+				{
+
+					timerStart = true;
+
+				}
+			}
+
+			//flash "3" "2" "1" "Go!" when space is hit
+			if (timerStart == true)
+			{
+				countdownTimer -= frameTime;
+				if (countdownTimer > 0.0f)
+				{
+					outText << ceilf(countdownTimer);
+					myFont->Draw(outText.str(), 500, 670);
+					outText.str("");
+				}
+				else
+				{
+					//move to race state and make lifecycle counter (1s)
+					myFont->Draw("Go!", 500, 670);
+
+					currentStateG = race;
+
+				}
 			}
 			break;
 		}
 
-		case countdown:
+		case race:
 		{
-			//flash "3" "2" "1" "Go!" when space is hit
-			for (int i = 3; i > 0; i--)
+			float speedometer = sqrt((momentum.x*momentum.x) + (momentum.z*momentum.z));
+			outText << ceilf(speedometer) << "mph";
+			myFont->Draw(outText.str(), 900, 670);
+			outText.str("");
+
+			goTimer -= frameTime;
+
+			if (goTimer > 0.0f)
 			{
-				myFont->Draw(" ", 500, 670);
+				myFont->Draw("Go!", 500, 670);
 			}
+
+			//save old position
+			float dummy1OldX = collisionDummy[0]->GetX();
+			float dummy1OldZ = collisionDummy[0]->GetZ();
+			float dummy2OldX = collisionDummy[1]->GetX();
+			float dummy2OldZ = collisionDummy[1]->GetZ();
+			float dummy3OldX = collisionDummy[2]->GetX();
+			float dummy3OldZ = collisionDummy[2]->GetZ();
+
+			//move the models
+			// get the facing vector
+			car->GetMatrix(&matrix[0][0]);
+			vector2D facingVector = { matrix[2][0], matrix[2][2] };
+			// calculate thrust based on keyboard input 
+
+			if (myEngine->KeyHeld(kAntiClockwiseTurnKey)) car->RotateY(-0.05f);
+			if (myEngine->KeyHeld(kClockwiseTurnKey)) car->RotateY(0.05f);
+
+			if (myEngine->KeyHeld(kAccelerateKey))
+			{
+				thrust = scalar(80.0f * frameTime, facingVector);							//magic number is thrust factor 
+			}
+			else if (myEngine->KeyHeld(kDecelerateKey))
+			{
+				thrust = scalar(-40.0f * frameTime, facingVector);
+			}
+			else
+			{
+				thrust = { 0.0f, 0.0f };
+			}
+			// calculate drag based off of previous momentum
+
+			drag = scalar(-1.0*frameTime, momentum);
+
+			// calculate momentum based on thrust, drag and previous momentum
+			momentum = sum3(momentum, thrust, drag);
+			// move the car depending on the new momentum
+			car->Move(momentum.x*frameTime, 0.0f, momentum.z*frameTime);
+
+			if (myEngine->KeyHeld(kCameraForwardKey))
+			{
+				myCamera->MoveLocalZ(cameraMoveSpeed);
+			}
+
+			if (myEngine->KeyHeld(kCameraBackKey))
+			{
+				myCamera->MoveLocalZ(-cameraMoveSpeed);
+			}
+
+			if (myEngine->KeyHeld(kCameraLeftKey))
+			{
+				myCamera->MoveLocalX(-cameraMoveSpeed);
+			}
+
+			if (myEngine->KeyHeld(kCameraRightKey))
+			{
+				myCamera->MoveLocalX(cameraMoveSpeed);
+			}
+
+			if (myEngine->KeyHit(kCameraResetKey))
+			{
+				myCamera->SetLocalPosition(0, 7, -20);
+
+			}
+
+			if (myEngine->KeyHit(kFirstPersonCameraKey))
+			{
+				myCamera->SetLocalPosition(0, 5, 0);
+			}
+
+			//check for collisions
+			//float dXPos, float dZPos, float dRad, float cXPos, float cZPos, float cRad
+
+			for (int i = 0; i < kNumWalls; i++)
+			{
+				for (int k = 0; k < kNumCollDummies; k++)
+				{
+					blockSide wallCollision = sphere2box(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), dummy1OldX, dummy1OldZ, 2, wall[i]->GetX(), wall[i]->GetZ(), 4, 22);
+					if (wallCollision == side)
+					{
+						myFont->Draw("SIDE COLLISION", 200, 270);
+						momentum.x = -momentum.x;
+						momentum.z = -momentum.z;
+					}
+					if (wallCollision == frontBack)
+					{
+						myFont->Draw("FRONTBACK COLLISION", 210, 370);
+						momentum.x = -momentum.x;
+						momentum.z = -momentum.z;
+					}
+					if (wallCollision == noSide)
+					{
+					}
+				}
+			}
+
+			for (int i = 0; i < kNumCheckpoints; i++)
+			{
+				for (int k = 0; k < kNumCollDummies; k++)
+				{
+					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, checkpoint[i]->GetX() - 10, checkpoint[i]->GetZ(), 2);
+					if (collision == true)
+					{
+						myFont->Draw("CHECKPOINT COLLISION", 300, 670);
+					}
+					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, checkpoint[i]->GetX() + 10, checkpoint[i]->GetZ(), 2);
+					if (collision == true)
+					{
+						myFont->Draw("CHECKPOINT COLLISION", 300, 670);
+					}
+				}
+			}
+			for (int i = 0; i < kNumTanks1; i++)
+			{
+				for (int k = 0; k < kNumCollDummies; k++)
+				{
+					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, tank1[i]->GetX(), tank1[i]->GetZ(), 4);
+					if (collision == true)
+					{
+						myFont->Draw("TANK COLLISION", 800, 670);
+					}
+				}
+			}
+			break;
+		}
+		case finished:
+		{
 		}
 		}
 
@@ -279,192 +452,33 @@ void main()
 		{
 		case firstCheckpoint:
 		{
-			// switch to firstCheckpoint state after 
-			//display press space to start here 
-			if (myEngine->KeyHit(kBoostKey))
-			{
-				//flash 3, 2, 1, go goes here, should check whether the output is go and transition to first checkpoint when that happens 
-				currentStateC = secondCheckpoint;
-			}
-			break;
-		}
-
-		case secondCheckpoint:
-		{
 			// in the UI at the bottom display "stage 1 complete"
 			myFont->Draw("Stage 1", 300, 670);
-			//save old position
-			float dummy1OldX = collisionDummy[0]->GetX();
-			float dummy1OldZ = collisionDummy[0]->GetZ();
-
-			//move the models
-			// get the facing vector
-			car->GetMatrix(&matrix[0][0]);
-			vector2D facingVector = { matrix[2][0], matrix[2][2] };
-			// calculate thrust based on keyboard input 
-
-			if (myEngine->KeyHeld(kAntiClockwiseTurnKey)) car->RotateY(-0.05f);
-			if (myEngine->KeyHeld(kClockwiseTurnKey)) car->RotateY(0.05f);
-
-			if (myEngine->KeyHeld(kAccelerateKey))
-			{
-				thrust = scalar(0.00001f, facingVector);							//magic number is thrust factor 
-			}
-			else if (myEngine->KeyHeld(kDecelerateKey))
-			{
-				thrust = scalar(-0.00001f, facingVector);
-			}
-			else
-			{
-				thrust = { 0.0f, 0.0f };
-			}
-			// calculate drag based off of previous momentum
-
-			drag = scalar(-0.0001, momentum);
-
-			// calculate momentum based on thrust, drag and previous momentum
-			momentum = sum3(momentum, thrust, drag);
-			// move the car depending on the new momentum
-			car->Move(momentum.x, 0.0f, momentum.z);
-
-			if (myEngine->KeyHeld(kCameraForwardKey))
-			{
-				myCamera->MoveLocalZ(cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraBackKey))
-			{
-				myCamera->MoveLocalZ(-cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraLeftKey))
-			{
-				myCamera->MoveLocalX(-cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraRightKey))
-			{
-				myCamera->MoveLocalX(cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHit(kCameraResetKey))
-			{
-				myCamera->SetLocalPosition(0, 5, -20);
-
-			}
-
-			if (myEngine->KeyHit(kFirstPersonCameraKey))
-			{
-				myCamera->SetLocalPosition(0, 5, 0);
-			}
-
-			//check for collisions
-			//float dXPos, float dZPos, float dRad, float cXPos, float cZPos, float cRad
-
-			for (int i = 0; i < kNumWalls; i++)
-			{
-				for (int k = 0; k < kNumCollDummies; k++)
-				{
-					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, wall[i]->GetX(), wall[i]->GetZ(), 2);
-					if (collision == true)
-					{
-						myFont->Draw("COLLISION", 300, 670);
-					}
-				}
-			}
-
+			
 			collision = sphere2point(collisionDummy[1]->GetX(), collisionDummy[1]->GetZ(), 2, checkpoint[1]->GetX(), checkpoint[1]->GetZ());
 			if (collision == true)
 			{
-				currentStateC = thirdCheckpoint;
+				currentStateC = secondCheckpoint;
 			}
 			//reslove collisions
 			break;
 		}
-		case thirdCheckpoint:
+		case secondCheckpoint:
 		{
 			myFont->Draw("Stage 2", 300, 670);
-			//save old position
-			float dummy1OldX = collisionDummy[0]->GetX();
-			float dummy1OldZ = collisionDummy[0]->GetZ();
-
-			//move the models
-			// get the facing vector
-			car->GetMatrix(&matrix[0][0]);
-			vector2D facingVector = { matrix[2][0], matrix[2][2] };
-			// calculate thrust based on keyboard input 
-
-			if (myEngine->KeyHeld(kAntiClockwiseTurnKey)) car->RotateY(-0.05f);
-			if (myEngine->KeyHeld(kClockwiseTurnKey)) car->RotateY(0.05f);
-
-			if (myEngine->KeyHeld(kAccelerateKey))
-			{
-				thrust = scalar(0.00001f, facingVector);							//magic number is thrust factor 
-			}
-			else if (myEngine->KeyHeld(kDecelerateKey))
-			{
-				thrust = scalar(-0.00001f, facingVector);
-			}
-			else
-			{
-				thrust = { 0.0f, 0.0f };
-			}
-			// calculate drag based off of previous momentum
-
-			drag = scalar(-0.0001, momentum);
-
-			// calculate momentum based on thrust, drag and previous momentum
-			momentum = sum3(momentum, thrust, drag);
-			// move the car depending on the new momentum
-			car->Move(momentum.x, 0.0f, momentum.z);
-
-			if (myEngine->KeyHeld(kCameraForwardKey))
-			{
-				myCamera->MoveLocalZ(cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraBackKey))
-			{
-				myCamera->MoveLocalZ(-cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraLeftKey))
-			{
-				myCamera->MoveLocalX(-cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraRightKey))
-			{
-				myCamera->MoveLocalX(cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHit(kCameraResetKey))
-			{
-				myCamera->SetLocalPosition(0, 5, -20);
-
-			}
-
-			if (myEngine->KeyHit(kFirstPersonCameraKey))
-			{
-				myCamera->SetLocalPosition(0, 5, 0);
-			}
-
-			//check for collisions
-			//float dXPos, float dZPos, float dRad, float cXPos, float cZPos, float cRad
-
-			for (int i = 0; i < kNumWalls; i++)
-			{
-				for (int k = 0; k < kNumCollDummies; k++)
-				{
-					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, wall[i]->GetX(), wall[i]->GetZ(), 2);
-					if (collision == true)
-					{
-						myFont->Draw("COLLISION", 300, 670);
-					}
-				}
-			}
 
 			collision = sphere2point(collisionDummy[1]->GetX(), collisionDummy[1]->GetZ(), 2, checkpoint[2]->GetX(), checkpoint[2]->GetZ());
+			if (collision == true)
+			{
+				currentStateC = thirdCheckpoint;
+			}
+			break;
+		}
+		case thirdCheckpoint:
+		{
+			myFont->Draw("Stage 3", 300, 670);
+
+			collision = sphere2point(collisionDummy[1]->GetX(), collisionDummy[1]->GetZ(), 2, checkpoint[3]->GetX(), checkpoint[3]->GetZ());
 			if (collision == true)
 			{
 				currentStateC = fourthCheckpoint;
@@ -473,176 +487,8 @@ void main()
 		}
 		case fourthCheckpoint:
 		{
-			myFont->Draw("Stage 3", 300, 670);
-			//save old position
-			float dummy1OldX = collisionDummy[0]->GetX();
-			float dummy1OldZ = collisionDummy[0]->GetZ();
-
-			//move the models
-			// get the facing vector
-			car->GetMatrix(&matrix[0][0]);
-			vector2D facingVector = { matrix[2][0], matrix[2][2] };
-			// calculate thrust based on keyboard input 
-
-			if (myEngine->KeyHeld(kAntiClockwiseTurnKey)) car->RotateY(-0.05f);
-			if (myEngine->KeyHeld(kClockwiseTurnKey)) car->RotateY(0.05f);
-
-			if (myEngine->KeyHeld(kAccelerateKey))
-			{
-				thrust = scalar(0.00001f, facingVector);							//magic number is thrust factor 
-			}
-			else if (myEngine->KeyHeld(kDecelerateKey))
-			{
-				thrust = scalar(-0.00001f, facingVector);
-			}
-			else
-			{
-				thrust = { 0.0f, 0.0f };
-			}
-			// calculate drag based off of previous momentum
-
-			drag = scalar(-0.0001, momentum);
-
-			// calculate momentum based on thrust, drag and previous momentum
-			momentum = sum3(momentum, thrust, drag);
-			// move the car depending on the new momentum
-			car->Move(momentum.x, 0.0f, momentum.z);
-
-			if (myEngine->KeyHeld(kCameraForwardKey))
-			{
-				myCamera->MoveLocalZ(cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraBackKey))
-			{
-				myCamera->MoveLocalZ(-cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraLeftKey))
-			{
-				myCamera->MoveLocalX(-cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraRightKey))
-			{
-				myCamera->MoveLocalX(cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHit(kCameraResetKey))
-			{
-				myCamera->SetLocalPosition(0, 5, -20);
-
-			}
-
-			if (myEngine->KeyHit(kFirstPersonCameraKey))
-			{
-				myCamera->SetLocalPosition(0, 5, 0);
-			}
-
-			//check for collisions
-			//float dXPos, float dZPos, float dRad, float cXPos, float cZPos, float cRad
-
-			for (int i = 0; i < kNumWalls; i++)
-			{
-				for (int k = 0; k < kNumCollDummies; k++)
-				{
-					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, wall[i]->GetX(), wall[i]->GetZ(), 2);
-					if (collision == true)
-					{
-						myFont->Draw("COLLISION", 300, 670);
-					}
-				}
-			}
-
-			collision = sphere2point(collisionDummy[0]->GetX(), collisionDummy[0]->GetZ(), 2, checkpoint[3]->GetX(), checkpoint[3]->GetZ());
-			if (collision == true)
-			{
-				currentStateC = fifthCheckpoint;
-			}
-			break;
-		}
-		case fifthCheckpoint:
-		{
 			myFont->Draw("Stage 4", 300, 670);
-			//save old position
-			float dummy1OldX = collisionDummy[0]->GetX();
-			float dummy1OldZ = collisionDummy[0]->GetZ();
-
-			//move the models
-			// get the facing vector
-			car->GetMatrix(&matrix[0][0]);
-			vector2D facingVector = { matrix[2][0], matrix[2][2] };
-			// calculate thrust based on keyboard input 
-
-			if (myEngine->KeyHeld(kAntiClockwiseTurnKey)) car->RotateY(-0.05f);
-			if (myEngine->KeyHeld(kClockwiseTurnKey)) car->RotateY(0.05f);
-
-			if (myEngine->KeyHeld(kAccelerateKey))
-			{
-				thrust = scalar(0.00001f, facingVector);							//magic number is thrust factor 
-			}
-			else if (myEngine->KeyHeld(kDecelerateKey))
-			{
-				thrust = scalar(-0.00001f, facingVector);
-			}
-			else
-			{
-				thrust = { 0.0f, 0.0f };
-			}
-			// calculate drag based off of previous momentum
-
-			drag = scalar(-0.0001, momentum);
-
-			// calculate momentum based on thrust, drag and previous momentum
-			momentum = sum3(momentum, thrust, drag);
-			// move the car depending on the new momentum
-			car->Move(momentum.x, 0.0f, momentum.z);
-
-			if (myEngine->KeyHeld(kCameraForwardKey))
-			{
-				myCamera->MoveLocalZ(cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraBackKey))
-			{
-				myCamera->MoveLocalZ(-cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraLeftKey))
-			{
-				myCamera->MoveLocalX(-cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHeld(kCameraRightKey))
-			{
-				myCamera->MoveLocalX(cameraMoveSpeed);
-			}
-
-			if (myEngine->KeyHit(kCameraResetKey))
-			{
-				myCamera->SetLocalPosition(0, 5, -20);
-
-			}
-
-			if (myEngine->KeyHit(kFirstPersonCameraKey))
-			{
-				myCamera->SetLocalPosition(0, 5, 0);
-			}
-
-			//check for collisions
-			//float dXPos, float dZPos, float dRad, float cXPos, float cZPos, float cRad
-
-			for (int i = 0; i < kNumWalls; i++)
-			{
-				for (int k = 0; k < kNumCollDummies; k++)
-				{
-					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, wall[i]->GetX(), wall[i]->GetZ(), 2);
-					if (collision == true)
-					{
-						myFont->Draw("COLLISION", 300, 670);
-					}
-				}
-			}
+			
 
 			collision = sphere2point(collisionDummy[1]->GetX(), collisionDummy[1]->GetZ(), 2, checkpoint[0]->GetX(), checkpoint[0]->GetZ());
 			if (collision == true)
@@ -658,7 +504,7 @@ void main()
 			// in the UI at the bottom display "race complete"
 
 			myFont->Draw("Race Complete", 500, 670);
-
+			currentStateG = finished;
 			break;
 		}
 		}
@@ -705,30 +551,22 @@ bool sphere2point(float dumXPos, float dumZPos, float dumRad, float checkXPos, f
 
 blockSide sphere2box(float d1XPos, float d1ZPos, float d1OldXPos, float d1OldZPos, float d1Rad, float wXPos, float wZPos, float wWidth, float wDepth)	//retrives values from where it is called
 {
-	float minX = wXPos - wWidth - d1Rad;			//creation of a box around blocks to determine if the car dummies have collided by adding the radius of the marble to the radius of the block
-	float maxX = wXPos + wWidth + d1Rad;
-	float minZ = wZPos - wDepth - d1Rad;
-	float maxZ = wZPos + wDepth + d1Rad;
+	float minX = wXPos - wWidth / 2 - d1Rad;			//creation of a box around blocks to determine if the car dummies have collided by adding the radius of the marble to the radius of the block
+	float maxX = wXPos + wWidth / 2 + d1Rad;
+	float minZ = wZPos - wDepth / 2 - d1Rad;
+	float maxZ = wZPos + wDepth / 2 + d1Rad;
 
 	blockSide result = noSide;
 
 	if (d1XPos > minX && d1XPos < maxX && d1ZPos > minZ && d1ZPos < maxZ)	//outputs which side the marble has hit to where the function has been called to change vectors appropriately
 	{
-		if (d1OldXPos < minX)
+		if (d1OldXPos < minX || d1OldXPos > maxX)
 		{
-			result = leftSide;
-		}
-		else if (d1OldXPos > maxX)
-		{
-			result = rightSide;
-		}
-		else if (d1OldZPos < minZ)
-		{
-			result = frontSide;
+			result = side;
 		}
 		else
 		{
-			result = backSide;
+			result = frontBack;
 		}
 	}
 

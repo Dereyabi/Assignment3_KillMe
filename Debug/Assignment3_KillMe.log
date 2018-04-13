@@ -1,4 +1,5 @@
 ﻿  Assignment3_KillMe.cpp
-c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(97): warning C4101: 'zVectorMovement': unreferenced local variable
-c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(96): warning C4101: 'xVectorMovement': unreferenced local variable
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(350): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(98): warning C4101: 'zVectorMovement': unreferenced local variable
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(97): warning C4101: 'xVectorMovement': unreferenced local variable
   Assignment3_KillMe.vcxproj -> C:\Users\JStewart8\Documents\GitHub\Assignment3_KillMe\\Assignment3_KillMeDebug.exe
