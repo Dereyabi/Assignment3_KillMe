@@ -1,8 +1,10 @@
 ﻿  Assignment3_KillMe.cpp
-c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(298): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
-c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(310): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
-c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(339): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
-c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(471): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
-c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(98): warning C4101: 'zVectorMovement': unreferenced local variable
-c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(97): warning C4101: 'xVectorMovement': unreferenced local variable
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(278): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(396): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(400): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(412): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(529): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(535): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(639): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
   Assignment3_KillMe.vcxproj -> C:\Users\JStewart8\Documents\GitHub\Assignment3_KillMe\\Assignment3_KillMeDebug.exe
+  Copying DLLs & shaders...
