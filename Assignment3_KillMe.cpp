@@ -7,22 +7,21 @@ using namespace tle;
 
 //constants 
 
-const int kNumCheckpoints = 4;
-const int kNumIsles = 8;
-const int kNumWalls = 4;
-const int kNumBuildings = 4;
-const int kNumTanks1 = 6;
-const int kNumTanks2 = 1;
-const int kNumCollDummies = 3;
+const int kNumCheckpoints = 4;																					//number of each of the objects, used to spawn in the models and are used in collision detection 
+const int kNumIsles = 16;
+const int kNumWalls = 10;
+const int kNumTanks1 = 8;
+const int kNumTanks2 = 2;
+const int kNumCollDummies = 1;
 
 
-enum blockSide { side, frontBack, noSide };	// type to identify which side of a barrier is being hit - 
-																		// used in collision detection to have the car bounce off of the sides of the barrier
+enum blockSide { side, frontBack, noSide };																		// type to identify which side of a barrier is being hit - 
+																													//used in collision detection to have the car bounce off of the sides of the barrier
 
-bool sphere2sphere(float dumXPos, float dumZPos, float dumRad, float isleXPos, float isleZPos, float isleRad);			//sphere to sphere collision
+bool sphere2sphere(float dumXPos, float dumZPos, float dumRad, float isleXPos, float isleZPos, float isleRad);			
 
 blockSide sphere2box(float d1XPos, float d1ZPos, float d1OldXPos, float d1OldZPos, float d1Rad,
-	float wXPos, float wZPos, float wWidth, float wDepth);
+					float wXPos, float wZPos, float wWidth, float wDepth);
 
 bool sphere2point(float dumXPos, float dumZPos, float dumRad, float checkXPos, float checkZPos);
 
@@ -64,7 +63,7 @@ struct ModelBuilding
 	IModel* building;
 };
 
-vector2D scalar(float s, vector2D v)
+vector2D scalar(float s, vector2D v)													//look these up when I wake up
 {
 	return { s * v.x, s * v.z };
 }
@@ -75,10 +74,9 @@ vector2D sum3(vector2D v1, vector2D v2, vector2D v3)
 }
 
 //array initialisation
-ModelCheckpoint checkpoint[kNumCheckpoints];
+ModelCheckpoint checkpoint[kNumCheckpoints];											//arrays for all scenery
 ModelIsle isle[kNumIsles];
 ModelWall wall[kNumWalls];
-ModelBuilding building[kNumBuildings];
 
 
 void main()
@@ -91,35 +89,27 @@ void main()
 	myEngine->AddMediaFolder("./media");
 
 	/**** Set up your scene here ****/
-	float pi = 3.1415f;
-	float frameTime;
-	float radienDivision = pi / 180.0f;												//divides for the radien for vector movement
-	float xVectorMovement;
-	float zVectorMovement;
-	float kAcceleration = 0.0f;
-	float turningLowerLimit = -20.0f;
-	float turningUpperLimit = 20.0f;
-	float carRotation = 0.0f;
-	float cameraMoveSpeed = 0.01f;
-	float isleRow1X = -10.0f;
-	float wallRow1X = -10.5f;
-	bool collision = false;
-	float countdownTimer = 3.0f;
-	float boostTimer = 3.0f;
-	float cooldownTimer = 5.0f;
-	float stageCompleteTimer = 1.0f;
-	float lapTimer = 0.0f;
-	bool timerStart = false;
-	float warningTimer = 1.0f;
-	float goTimer = 1.0f;
-
+	float frameTime;																//multiplier for game speed
+	float cameraMoveSpeed = 0.01f;													//used to move the camera 
+	bool collision = false;															//used to determine whether there has been a collision or not
+	float countdownTimer = 3.0f;													//timer that is used after the spacebar has been pressed to start the game	
+	float boostTimer = 3.0f;														//timer for how long the boost can last, if space is held for longer than this the cooldown timer becomes active, a warning is also
+																						//activated when it is within 1 second of the boost being overused
+	float cooldownTimer = 5.0f;														//gives the boost key a cooldown 
+	float stageCompleteTimer = 1.0f;												//used to display that a stage is complete when a checkpoint is passed 
+	bool timerStart = false;														//used to determine if the space bar has been pressed to start the game 
+	float warningTimer = 1.0f;														//displayed when the user needs to be warned that their booster is about to overheat 
+	float goTimer = 1.0f;															//timer used to display go after the countdown timer has finished 
+	int lap = 1;																	//used to output what lap the player is on when they pass the starting checkpoint 
+	bool lapStart = false;															//makes sure that the race has already said go after the spacebar has been hit and the timer has finished 
+																						//before it displays the current lap
 
 	//game states
-	enum gameStates { start, race, finished };
-	gameStates currentStateG = start;
+	enum gameStates { start, race, finished };																					//used to determine whether the player is in the starting stage, racing or has finished
+	gameStates currentStateG = start;																								//contains movement, collision detection and checkpoint updates 
 
 	//checkpoint numbers
-	enum checkpointNumber { firstCheckpoint, secondCheckpoint, thirdCheckpoint, fourthCheckpoint, fifthCheckpoint, finish };
+	enum checkpointNumber { firstCheckpoint, secondCheckpoint, thirdCheckpoint, fourthCheckpoint, fifthCheckpoint, finish };	//used to determine what checkpoint the player is at
 	checkpointNumber currentStateC = firstCheckpoint;
 
 	//controls
@@ -135,16 +125,6 @@ void main()
 	const EKeyCode kCameraResetKey = Key_1;
 	const EKeyCode kFirstPersonCameraKey = Key_2;
 
-
-	//checkpoint variables
-	int checkpointNumber = 0;
-
-
-	//player car variables
-	float reverseSpeedMultiplier = 4.0f;
-
-
-
 	//meshes
 	IMesh* skyboxMesh = myEngine->LoadMesh("Skybox 07.x");
 	IMesh* carMesh = myEngine->LoadMesh("race2.x");
@@ -158,21 +138,17 @@ void main()
 	IMesh* enemyCarMesh = myEngine->LoadMesh("Interstellar.x");
 	IMesh* dummyMesh = myEngine->LoadMesh("Dummy.x");
 
-
-
-
-
-
 	//models
 	IModel* isle[kNumIsles];
 	IModel* wall[kNumWalls];
 	IModel* tank1[kNumTanks1];
 	IModel* tank2[kNumTanks2];
 	IModel* checkpoint[kNumCheckpoints];
-	IModel* collisionDummy[kNumCollDummies];
+	IModel* cameraDummy = dummyMesh->CreateModel(0.0f, 0.0f, 0.0f);
 	IModel* skybox = skyboxMesh->CreateModel(0.0f, -960.0f, 0.0f);
 	IModel* floor = floorMesh->CreateModel(0.0f, 0.0f, 0.0f);
 	IModel* car = carMesh->CreateModel(0.0f, 0.0f, 0.0f);
+	
 
 	//fonts
 	IFont* myFont = myEngine->LoadFont("Comic Sans MS", 36);
@@ -187,7 +163,10 @@ void main()
 
 	//camera
 	ICamera* myCamera = myEngine->CreateCamera(kManual, 0.0f, 7.0f, -20.0f);
-	myCamera->AttachToParent(car);
+
+	//attaching to parents
+	myCamera->AttachToParent(cameraDummy);
+	cameraDummy->AttachToParent(car);
 	
 
 	vector2D momentum{ 0.0f, 0.0f };
@@ -196,37 +175,28 @@ void main()
 
 	float matrix[4][4];
 
-	// model posititons
-
 	// collision Dummies
-	float collisionDummyZLocations[kNumCollDummies] = { 4.0f, 0.0f , -4.0f };
+	float collisionDummyZLocations[kNumCollDummies] = { 0.0f };
 
 	// checkpoints
 	float checkpointXLocations[kNumCheckpoints] = {0.0f, 0.0f, 100.0f, 100.0f };
 	float checkpointZLocations[kNumCheckpoints] = {0.0f, 100.0f, 100.0f, 0.0f };
 
 	// isles
-	float isleXLocations[kNumIsles] = {-10.0f, 10.0f, 10.0f, -10.0f, 90.0f, 110.0f, 110.0f, 90.0f};
-	float isleZLocations[kNumIsles] = {40.0f, 40.0f, 53.0f, 53.0f, 40.0f, 40.0f, 53.0f, 53.0f };
+	float isleXLocations[kNumIsles] = {-10.0f, 10.0f, 10.0f, -10.0f, 90.0f, 110.0f, 110.0f, 90.0f, 106.0f, 94.0f, 94.0f, 106.0f, 106.0f, 94.0f, 94.0f ,106.0f };
+	float isleZLocations[kNumIsles] = {40.0f, 40.0f, 53.0f, 53.0f, 40.0f, 40.0f, 53.0f, 53.0f, -10.0f, -10.0f, -23.0f, -23.0f, -36.0f, -36.0f, -49.0f, -49.0f, };
 
 	// tank 1 Locations
-	float tank1XLocations[kNumTanks1] = {0.0f, 40.0f, 100.0f, 0.0f, 40.0f, 100.0f };
-	float tank1ZLocations[kNumTanks1] = {200.0f, 220.0f, 200.0f, -50.0f, -75.0f, -50.0f};
+	float tank1XLocations[kNumTanks1] = {0.0f, 40.0f, 100.0f, 0.0f, 60.0f, 100, 0, 40};
+	float tank1ZLocations[kNumTanks1] = {200.0f, 220.0f, 200.0f, -50.0f, -50.0f, -100.0f, -90.0f, -50.0f };
 
 	// tank 2 Locations
-	float tank2XLocations[kNumTanks2] = { 100.0f };
-	float tank2ZLocations[kNumTanks2] = { 200.0f };
+	float tank2XLocations[kNumTanks2] = { 80.0f, 5.0f};
+	float tank2ZLocations[kNumTanks2] = { 150.0f, 56.0f };
 
 	// walls
-	float wallXLocations[kNumWalls] = { -10.0f, 10.0f , 90.0f, 110.0f };
-	float wallZLocations[kNumWalls] = { 46.0f, 46.0f , 46.0f, 46.0f };
-
-
-	for (int i = 0; i < kNumCollDummies; i++)
-	{
-		collisionDummy[i] = dummyMesh->CreateModel( 0.0f, 0.0f, collisionDummyZLocations[i]);
-		collisionDummy[i]->AttachToParent(car);
-	}
+	float wallXLocations[kNumWalls] = { -10.0f, 10.0f , 90.0f, 110.0f, 94 ,106, 94, 106, 94, 106 };
+	float wallZLocations[kNumWalls] = { 46.0f, 46.0f , 46.0f, 46.0f, -16, -16, -42, -42, -30, -30 };
 
 	for (int i = 0; i < kNumWalls; i++)
 	{
@@ -250,7 +220,8 @@ void main()
 
 	for (int i = 0; i < kNumTanks2; i++)
 	{
-		tank2[i] = tank2Mesh->CreateModel(tank2XLocations[i], 0.0f, tank2ZLocations[i]);
+		tank2[i] = tank2Mesh->CreateModel(tank2XLocations[i], -8.0f, tank2ZLocations[i]);
+		tank2[i]->RotateLocalZ(20);
 	}
 
 	// The main game loop, repeat until engine is stopped
@@ -292,9 +263,7 @@ void main()
 				}
 				else
 				{
-					//move to race state and make lifecycle counter (1s)
-					myFont->Draw("Go!", 500, 670);
-
+					lapStart = true;
 					currentStateG = race;
 
 				}
@@ -309,6 +278,10 @@ void main()
 			myFont->Draw(outText.str(), 900, 670);
 			outText.str("");
 
+			outText << "lap " << ceilf(lap) << "/5";
+			myFont->Draw(outText.str(), 800, 670);
+			outText.str("");
+
 			goTimer -= frameTime;
 
 			if (goTimer > 0.0f)
@@ -316,13 +289,12 @@ void main()
 				myFont->Draw("Go!", 500, 670);
 			}
 
+			int MouseXMovement = myEngine->GetMouseMovementX();
+			cameraDummy->RotateY(MouseXMovement);
+
 			//save old position
-			float dummy1OldX = collisionDummy[0]->GetX();
-			float dummy1OldZ = collisionDummy[0]->GetZ();
-			float dummy2OldX = collisionDummy[1]->GetX();
-			float dummy2OldZ = collisionDummy[1]->GetZ();
-			float dummy3OldX = collisionDummy[2]->GetX();
-			float dummy3OldZ = collisionDummy[2]->GetZ();
+			float carOldX = car->GetX();
+			float carOldZ = car->GetZ();
 
 			//move the models
 			// get the facing vector
@@ -390,24 +362,17 @@ void main()
 
 			for (int i = 0; i < kNumWalls; i++)
 			{
-				for (int k = 0; k < kNumCollDummies; k++)
+				blockSide wallCollision = sphere2box(car->GetX(), car->GetZ(), carOldX, carOldZ, 2, wall[i]->GetX(), wall[i]->GetZ(), 4, 22);
+				if (wallCollision == side || wallCollision == frontBack)
 				{
-					blockSide wallCollision = sphere2box(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), dummy1OldX, dummy1OldZ, 2, wall[i]->GetX(), wall[i]->GetZ(), 4, 22);
-					if (wallCollision == side)
-					{
-						myFont->Draw("SIDE COLLISION", 200, 270);
-						momentum.x = -momentum.x;
-						momentum.z = -momentum.z;
-					}
-					if (wallCollision == frontBack)
-					{
-						myFont->Draw("FRONTBACK COLLISION", 210, 370);
-						momentum.x = -momentum.x;
-						momentum.z = -momentum.z;
-					}
-					if (wallCollision == noSide)
-					{
-					}
+					myFont->Draw("SIDE COLLISION", 200, 270);
+					momentum.x = -momentum.x;
+					momentum.z = -momentum.z;
+					car->SetZ(carOldZ);
+					car->SetX(carOldX);
+				}
+				else if (wallCollision == noSide)
+				{
 				}
 			}
 
@@ -415,15 +380,23 @@ void main()
 			{
 				for (int k = 0; k < kNumCollDummies; k++)
 				{
-					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, checkpoint[i]->GetX() - 10, checkpoint[i]->GetZ(), 2);
+					collision = sphere2sphere(car->GetX(), car->GetZ(), 2, checkpoint[i]->GetX() - 10, checkpoint[i]->GetZ(), 2);
 					if (collision == true)
 					{
 						myFont->Draw("CHECKPOINT COLLISION", 300, 670);
+						momentum.x = -momentum.x;
+						momentum.z = -momentum.z;
+						car->SetZ(carOldZ);
+						car->SetX(carOldX);
 					}
-					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, checkpoint[i]->GetX() + 10, checkpoint[i]->GetZ(), 2);
+					collision = sphere2sphere(car->GetX(), car->GetZ(), 2, checkpoint[i]->GetX() + 10, checkpoint[i]->GetZ(), 2);
 					if (collision == true)
 					{
 						myFont->Draw("CHECKPOINT COLLISION", 300, 670);
+						momentum.x = -momentum.x;
+						momentum.z = -momentum.z;
+						car->SetZ(carOldZ);
+						car->SetX(carOldX);
 					}
 				}
 			}
@@ -431,10 +404,30 @@ void main()
 			{
 				for (int k = 0; k < kNumCollDummies; k++)
 				{
-					collision = sphere2sphere(collisionDummy[k]->GetX(), collisionDummy[k]->GetZ(), 2, tank1[i]->GetX(), tank1[i]->GetZ(), 4);
+					collision = sphere2sphere(car->GetX(), car->GetZ(), 2, tank1[i]->GetX(), tank1[i]->GetZ(), 4);
 					if (collision == true)
 					{
 						myFont->Draw("TANK COLLISION", 800, 670);
+						momentum.x = -momentum.x;
+						momentum.z = -momentum.z;
+						car->SetZ(carOldZ);
+						car->SetX(carOldX);
+					}
+				}
+			}
+
+			for (int i = 0; i < kNumTanks2; i++)
+			{
+				for (int k = 0; k < kNumCollDummies; k++)
+				{
+					collision = sphere2sphere(car->GetX(), car->GetZ(), 2, tank2[i]->GetX()-3, tank2[i]->GetZ(), 4);
+					if (collision == true)
+					{
+						myFont->Draw("TANK COLLISION", 800, 670);
+						momentum.x = -momentum.x;
+						momentum.z = -momentum.z;
+						car->SetZ(carOldZ);
+						car->SetX(carOldX);
 					}
 				}
 			}
@@ -455,9 +448,20 @@ void main()
 			// in the UI at the bottom display "stage 1 complete"
 			myFont->Draw("Stage 1", 300, 670);
 			
-			collision = sphere2point(collisionDummy[1]->GetX(), collisionDummy[1]->GetZ(), 2, checkpoint[1]->GetX(), checkpoint[1]->GetZ());
+			stageCompleteTimer -= frameTime;
+			if (stageCompleteTimer > 0.0f && lapStart == true)
+			{
+				outText << "lap " << ceilf(lap) << "/5";
+				myFont->Draw(outText.str(), 500, 170);
+				outText.str("");
+				
+
+			}
+
+			collision = sphere2point(car->GetX(), car->GetZ(), 2, checkpoint[1]->GetX(), checkpoint[1]->GetZ());
 			if (collision == true)
 			{
+				stageCompleteTimer = 1;
 				currentStateC = secondCheckpoint;
 			}
 			//reslove collisions
@@ -467,9 +471,18 @@ void main()
 		{
 			myFont->Draw("Stage 2", 300, 670);
 
-			collision = sphere2point(collisionDummy[1]->GetX(), collisionDummy[1]->GetZ(), 2, checkpoint[2]->GetX(), checkpoint[2]->GetZ());
+			stageCompleteTimer -= frameTime;
+			if (stageCompleteTimer > 0.0f)
+			{
+			
+				myFont->Draw("Stage 1 Complete", 500, 170);
+				
+			}
+
+			collision = sphere2point(car->GetX(), car->GetZ(), 2, checkpoint[2]->GetX(), checkpoint[2]->GetZ());
 			if (collision == true)
 			{
+				stageCompleteTimer = 1;
 				currentStateC = thirdCheckpoint;
 			}
 			break;
@@ -478,9 +491,18 @@ void main()
 		{
 			myFont->Draw("Stage 3", 300, 670);
 
-			collision = sphere2point(collisionDummy[1]->GetX(), collisionDummy[1]->GetZ(), 2, checkpoint[3]->GetX(), checkpoint[3]->GetZ());
+			stageCompleteTimer -= frameTime;
+			if (stageCompleteTimer > 0.0f)
+			{
+
+				myFont->Draw("Stage 2 Complete", 500, 170);
+
+			}
+
+			collision = sphere2point(car->GetX(), car->GetZ(), 2, checkpoint[3]->GetX(), checkpoint[3]->GetZ());
 			if (collision == true)
 			{
+				stageCompleteTimer = 1;
 				currentStateC = fourthCheckpoint;
 			}
 			break;
@@ -489,11 +511,27 @@ void main()
 		{
 			myFont->Draw("Stage 4", 300, 670);
 			
+			stageCompleteTimer -= frameTime;
+			if (stageCompleteTimer > 0.0f)
+			{
 
-			collision = sphere2point(collisionDummy[1]->GetX(), collisionDummy[1]->GetZ(), 2, checkpoint[0]->GetX(), checkpoint[0]->GetZ());
+				myFont->Draw("Stage 3 Complete", 500, 170);
+
+			}
+
+			collision = sphere2point(car->GetX(), car->GetZ(), 2, checkpoint[0]->GetX(), checkpoint[0]->GetZ());
 			if (collision == true)
 			{
-				currentStateC = finish;
+				if (lap == 5)
+				{
+					currentStateC = finish;
+				}
+				else
+				{
+					lap += 1;
+					stageCompleteTimer = 1;
+					currentStateC = firstCheckpoint;
+				}
 			}
 
 			break;
