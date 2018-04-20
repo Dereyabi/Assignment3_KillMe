@@ -13,7 +13,7 @@ const int kNumWalls = 10;
 const int kNumTanks1 = 8;
 const int kNumTanks2 = 2;
 const int kNumCollDummies = 1;
-
+const int numberOfLaps = 5;																						//the amount of laps the car has to do before the game will end
 
 enum blockSide { side, frontBack, noSide };																		// type to identify which side of a barrier is being hit - 
 																													//used in collision detection to have the car bounce off of the sides of the barrier
@@ -92,7 +92,7 @@ void main()
 
 	//Variables
 	//game 
-	int numberOfLaps = 5;															//the amount of laps the car has to do before the game will end
+	
 	bool carDestroyed = false;														//if the car runs out of health this will trigger the game to end 
 	float dragFactor = -1.0f;														//how much the car is slowed down by default just by moving, this is used with thrust to calculate momentum
 	float forwardsThrustFactor = 80.0f;												//forward thrust of the car, used to calculate momentum and used in the boost to speed up the car or slow it down
@@ -127,7 +127,7 @@ void main()
 	int camera3rdPersonZPosition = -20;
 	int camera1stPersonXPosition = 0;												//positions of the camera in first person 
 	int camera1stPersonYPosition = 5;
-	int camera1stPersonZPosition = 0;
+	int camera1stPersonZPosition = 2;
 	float cameraMoveSpeed = 0.01f;													//used to move the camera 
 
 	//object Variables 
@@ -387,7 +387,7 @@ void main()
 
 		case race:
 		{
-			float speedometer = sqrt((momentum.x*momentum.x) + (momentum.z*momentum.z));	//finds the speed that the car is going using momentum in each direction to find the hypotenuse 
+			float speedometer = sqrt((momentum.x*momentum.x) + (momentum.z*momentum.z));	//finds the speed that the car is going using momentum in each direction to find the length  
 																								//of the vector the car is travelling 
 			outText << ceilf(speedometer) << mphText;										//outputs the distance calculated using the formula above
 			myFont->Draw(outText.str(), mphTextXLocation, mphTextYLocation);

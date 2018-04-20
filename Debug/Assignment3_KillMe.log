@@ -7,4 +7,3 @@ c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(52
 c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(535): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
 c:\users\jstewart8\documents\github\assignment3_killme\assignment3_killme.cpp(639): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
   Assignment3_KillMe.vcxproj -> C:\Users\JStewart8\Documents\GitHub\Assignment3_KillMe\\Assignment3_KillMeDebug.exe
-  Copying DLLs & shaders...
